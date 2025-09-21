@@ -1,12 +1,12 @@
 # app.py
 # Before running:
-# pip install streamlit langchain langchain_community langchain-openai openai faiss-cpu tiktoken
+# pip install streamlit langchain langchain_community openai faiss-cpu tiktoken
 
 import os
 import streamlit as st
 from langchain_community.vectorstores import FAISS
-from langchain.embeddings.openai import OpenAIEmbeddings     # ✅ fixed import
-from langchain.chat_models import ChatOpenAI               # ✅ fixed import
+from langchain.embeddings.openai import OpenAIEmbeddings
+from langchain.chat_models import ChatOpenAI
 from langchain.text_splitter import CharacterTextSplitter
 
 # --------------------------
@@ -55,24 +55,34 @@ text_splitter = CharacterTextSplitter(chunk_size=200, chunk_overlap=20)
 split_docs = text_splitter.split_text(" ".join(docs))
 
 # --------------------------
-# Load API key from Streamlit secrets (Option 1)
+# Load API key from Streamlit secrets
 # --------------------------
 try:
     OPENAI_API_KEY = st.secrets["OPENAI_API_KEY"]
-    # Export to environment so LangChain/OpenAI clients can pick it up
     os.environ["OPENAI_API_KEY"] = OPENAI_API_KEY
 except KeyError:
     st.error("❌ OpenAI API key not found. Add `OPENAI_API_KEY` to .streamlit/secrets.toml")
     st.stop()
 
 # --------------------------
-# Create Embeddings & Vectorstore
+# Create Embeddings & FAISS index
 # --------------------------
-embeddings = OpenAIEmbeddings(model="text-embedding-3-small")
-vectorstore = FAISS.from_texts(split_docs, embeddings)
+embedding_model = st.secrets.get("EMBEDDING_MODEL", "text-embedding-3-small")
+# fallback if your account doesn't have text-embedding-3-small:
+# EMBEDDING_MODEL = "text-embedding-ada-002" in secrets.toml
+
+try:
+    embeddings = OpenAIEmbeddings(
+        model=embedding_model,
+        openai_api_key=OPENAI_API_KEY
+    )
+    vectorstore = FAISS.from_texts(split_docs, embeddings)
+except Exception as e:
+    st.error(f"❌ Embedding or FAISS index creation failed: {e}")
+    st.stop()
 
 # --------------------------
-# Helper: Simple text normalization
+# Helper: simple NLP normalization
 # --------------------------
 def simple_nlp(text: str) -> str:
     return " ".join(text.lower().strip().split())
@@ -83,7 +93,11 @@ def simple_nlp(text: str) -> str:
 class SimpleAIAgent:
     def __init__(self, name="AI Agent"):
         self.name = name
-        self.llm = ChatOpenAI(model="gpt-3.5-turbo", temperature=0.3)
+        self.llm = ChatOpenAI(
+            model_name="gpt-3.5-turbo",
+            temperature=0.3,
+            openai_api_key=OPENAI_API_KEY
+        )
 
     def respond(self, prompt: str) -> str:
         return self.llm.predict(prompt)
@@ -100,7 +114,7 @@ class AgenticAI:
         return self.agent.respond(final_prompt)
 
 # --------------------------
-# LangGraph (simple execution trace)
+# LangGraph (execution trace)
 # --------------------------
 class LangGraph:
     def __init__(self):
