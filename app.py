@@ -44,10 +44,17 @@ def call_gemini_api(prompt: str) -> str:
 # --- Embeddings ---
 def get_embedding(text: str) -> np.ndarray:
     url = f"https://generativelanguage.googleapis.com/v1beta/models/embedding-001:embedContent?key={GOOGLE_API_KEY}"
-    payload = {"model": "models/embedding-001", "content": {"parts": [{"text": text}]}}
+    payload = {
+        "model": "embedding-001",   # ✅ FIX: remove "models/" prefix
+        "content": {"parts": [{"text": text}]}
+    }
     headers = {"Content-Type": "application/json"}
     response = requests.post(url, headers=headers, data=json.dumps(payload))
-    response.raise_for_status()
+
+    if not response.ok:
+        st.error(f"❌ Embedding API failed: {response.status_code}, {response.text}")
+        return np.zeros(768, dtype="float32")  # fallback to dummy vector
+
     emb = response.json()["embedding"]["value"]
     return np.array(emb, dtype="float32")
 
