@@ -28,6 +28,19 @@ Use Cases of AI-Driven Data Centers:
 10. Sustainability & Green Initiatives
 """
 
+use_cases = [
+    "Energy Optimization & Cooling",
+    "Predictive Maintenance",
+    "Automated Workload Management",
+    "Security & Threat Detection",
+    "Capacity Planning & Forecasting",
+    "Network Traffic Optimization",
+    "Data Center Digital Twin",
+    "Incident Response & Self-Healing",
+    "AI-Augmented Monitoring & Alerts",
+    "Sustainability & Green Initiatives"
+]
+
 # -------------------------------
 # Load Local Gemini LLM
 # -------------------------------
@@ -99,20 +112,17 @@ agent_1 = Tool(
 def build_langgraph_pipeline():
     graph = StateGraph(dict)
 
-    # Step 1: Retrieve Knowledge
     def retrieve_knowledge(state):
         query = state["query"]
         state["rag_result"] = qa.run(query)
         return state
 
-    # Step 2: Run AgentExecutor
     def run_agent_executor(state):
         query = state["query"]
         executor = AgentExecutor.from_tools([agent_1], llm=llm_local, verbose=False)
         state["agent_result"] = executor.run(query)
         return state
 
-    # Step 3: Agentic AI Summary
     def agentic_summary(state):
         summary_prompt = f"Summarize actionable hardware insights from RAG and AgentExecutor outputs:\n\nRAG:\n{state['rag_result']}\n\nAgentExecutor Output:\n{state['agent_result']}"
         state["summary_result"] = llm_generate(summary_prompt)
@@ -130,16 +140,16 @@ def build_langgraph_pipeline():
     return graph.compile()
 
 # -------------------------------
-# Streamlit UI - User Input
+# Streamlit UI
 # -------------------------------
-st.title("MANISH SINGH - AI-Driven Data Center: Custom Query + AgentExecutor + Agentic AI")
-st.write("Enter your own query for RAG + NLP + Local Gemini LLM + Agentic AI + LangGraph")
+st.title("MANISH SINGH - AI-Driven Data Center Use Case Insights")
+st.write("Select a Data Center Use Case and generate insights using RAG + AgentExecutor + Agentic AI.")
 
-user_query = st.text_input("Enter your Data Center Use Case or Query:")
+selected_use_case = st.selectbox("Choose a Data Center Use Case:", use_cases)
 
-if st.button("Run Query") and user_query.strip():
+if st.button("Generate Insights") and selected_use_case.strip():
     workflow = build_langgraph_pipeline()
-    result = workflow.invoke({"query": user_query})
+    result = workflow.invoke({"query": selected_use_case})
 
     st.subheader("🔎 RAG Retrieved Knowledge")
     st.write(result["rag_result"])
@@ -152,7 +162,7 @@ if st.button("Run Query") and user_query.strip():
 
     st.subheader("⚙️ Hardware Integration Points")
     st.write("""
-    Here you can connect to:
+    Connect to:
     - SNMP / IPMI sensors (temperature, fans, power usage)
     - REST APIs from cooling/UPS vendors
     - Prometheus / Grafana for monitoring
