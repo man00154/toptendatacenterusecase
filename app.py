@@ -1,11 +1,11 @@
-import streamlit as st
+import streamlit as st 
 import yaml
 import os
 from langchain.prompts import PromptTemplate
 from langchain.chains import RetrievalQA
 from langchain_community.vectorstores import FAISS
-from langchain_community.embeddings import HuggingFaceEmbeddings
 from langchain.text_splitter import CharacterTextSplitter
+from langchain.embeddings.openai import OpenAIEmbeddings
 from langgraph.graph import StateGraph, END
 from langchain.agents import Tool, AgentExecutor
 from langchain.base_language import BaseLanguageModel
@@ -81,9 +81,9 @@ class APILLM(BaseLanguageModel):
 llm_api = APILLM()
 
 # -------------------------------
-# FAISS Knowledge Store
+# FAISS Knowledge Store using OpenAI Embeddings
 # -------------------------------
-embeddings = HuggingFaceEmbeddings(model_name="sentence-transformers/all-MiniLM-L6-v2")
+embeddings = OpenAIEmbeddings(openai_api_key=OPENAI_API_KEY)
 
 if os.path.exists(VECTORSTORE_PATH):
     vectordb = FAISS.load_local(VECTORSTORE_PATH, embeddings)
@@ -151,7 +151,7 @@ def build_langgraph_pipeline():
 # -------------------------------
 # Streamlit UI
 # -------------------------------
-st.title("MANISH SINGH - AI-Driven Data Center Insights (API-based LLM, CPU)")
+st.title("MANISH SINGH - AI-Driven Data Center Insights (OpenAI Embeddings + API LLM)")
 st.write("Select a Data Center Use Case and generate insights using RAG + AgentExecutor + API-based LLM.")
 
 selected_use_case = st.selectbox("Choose a Data Center Use Case:", use_cases)
