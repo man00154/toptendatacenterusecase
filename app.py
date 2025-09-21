@@ -29,12 +29,11 @@ Use Cases of AI-Driven Data Centers:
 """
 
 # -------------------------------
-# Load Free Local LLM
+# Load Local LLM (free model)
 # -------------------------------
 MODEL_NAME = "google/flan-t5-small"
 tokenizer = AutoTokenizer.from_pretrained(MODEL_NAME)
 model = AutoModelForSeq2SeqLM.from_pretrained(MODEL_NAME)
-
 llm_pipeline = pipeline(
     "text2text-generation",
     model=model,
@@ -55,7 +54,8 @@ class LocalLLM(BaseLanguageModel):
         return "local"
 
     def _call(self, prompt: str, stop=None) -> str:
-        return llm_generate(prompt)
+        result = llm_generate(prompt)
+        return str(result)
 
 llm_local = LocalLLM()
 
