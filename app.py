@@ -1,5 +1,5 @@
-# Install these packages before running
-# pip install -r requirements.txt
+# Install dependencies before running:
+# pip install streamlit langchain langchain_community openai faiss-cpu sentence-transformers torch transformers tiktoken
 
 import streamlit as st
 from langchain_community.vectorstores import FAISS
@@ -34,7 +34,7 @@ Include examples or best practices wherever possible.
 """
 
 # --------------------------
-# FAISS + Simple RAG Setup
+# Sample Knowledge Base for FAISS
 # --------------------------
 docs = [
     "Energy Optimization & Cooling: Use AI to reduce power consumption of cooling systems.",
@@ -53,18 +53,24 @@ text_splitter = CharacterTextSplitter(chunk_size=200, chunk_overlap=20)
 split_docs = text_splitter.split_text(" ".join(docs))
 
 # --------------------------
-# OpenAI Embeddings Setup
+# OpenAI API Key
 # --------------------------
 try:
     OPENAI_API_KEY = st.secrets["OPENAI_API_KEY"]
 except KeyError:
     st.error(
-        "OpenAI API key not found. Please add your `OPENAI_API_KEY` to the `secrets.toml` file or "
-        "as a secret in your Streamlit Cloud app settings."
+        "OpenAI API key not found. Add `OPENAI_API_KEY` to secrets.toml or Streamlit Secrets."
     )
     st.stop()
 
-embeddings = OpenAIEmbeddings(openai_api_key=OPENAI_API_KEY)
+# --------------------------
+# OpenAI Embeddings
+# --------------------------
+embeddings = OpenAIEmbeddings(
+    model="text-embedding-3-small",
+    openai_api_key=OPENAI_API_KEY
+)
+
 vectorstore = FAISS.from_texts(split_docs, embeddings)
 
 # --------------------------
@@ -74,7 +80,7 @@ def simple_nlp(text):
     return " ".join(text.lower().strip().split())
 
 # --------------------------
-# Simple Agent using OpenAI LLM
+# Simple AI Agent
 # --------------------------
 class SimpleAIAgent:
     def __init__(self, name="AI Agent"):
@@ -88,7 +94,7 @@ class SimpleAIAgent:
         return self.llm.predict(prompt)
 
 # --------------------------
-# Agentic AI (delegates tasks)
+# Agentic AI
 # --------------------------
 class AgenticAI:
     def __init__(self, agent):
@@ -98,7 +104,7 @@ class AgenticAI:
         return self.agent.respond(final_prompt)
 
 # --------------------------
-# LangGraph Simple Simulation
+# LangGraph Simulation
 # --------------------------
 class LangGraph:
     def __init__(self):
@@ -113,7 +119,7 @@ class LangGraph:
 # --------------------------
 # Streamlit UI
 # --------------------------
-st.title("MANISH SINGH -AI-Driven Data Center Assistant with Agent & LangGraph")
+st.title("MANISH SINGH - AI-Driven Data Center Assistant with Agent & LangGraph")
 
 selected_use_case = st.selectbox("Select a Use Case:", use_cases)
 user_query = st.text_input("Ask your question about the use case:")
@@ -121,7 +127,7 @@ user_query = st.text_input("Ask your question about the use case:")
 if user_query:
     clean_query = simple_nlp(user_query)
     
-    # Retrieve relevant docs from FAISS
+    # Retrieve relevant documents from FAISS
     docs = vectorstore.similarity_search(clean_query, k=2)
     context = " ".join([doc.page_content for doc in docs])
 
@@ -129,7 +135,7 @@ if user_query:
     ai_agent = SimpleAIAgent()
     agentic_ai = AgenticAI(ai_agent)
 
-    # Get AI response
+    # Generate AI response
     answer = agentic_ai.handle_query(clean_query, context)
 
     # Log in LangGraph
