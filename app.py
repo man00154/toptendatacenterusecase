@@ -1,5 +1,5 @@
 # Install these packages before running
-# pip install streamlit langchain langchain_community openai faiss-cpu sentence-transformers
+# pip install -r requirements.txt
 
 import streamlit as st
 from langchain_community.vectorstores import FAISS
@@ -113,7 +113,7 @@ class LangGraph:
 # --------------------------
 # Streamlit UI
 # --------------------------
-st.title("MANISH SINGH - AI-Driven Data Center Assistant with Agent & LangGraph")
+st.title("MANISH SINGH -AI-Driven Data Center Assistant with Agent & LangGraph")
 
 selected_use_case = st.selectbox("Select a Use Case:", use_cases)
 user_query = st.text_input("Ask your question about the use case:")
