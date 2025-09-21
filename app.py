@@ -7,10 +7,9 @@ from langchain.chains import RetrievalQA
 from langgraph.graph import StateGraph, END
 from transformers import AutoTokenizer, AutoModelForSeq2SeqLM, pipeline
 from langchain.agents import Tool, AgentExecutor
-from langchain.llms.base import LLM
+from langchain.base_language import BaseLanguageModel
 import torch
 import os
-import shutil
 
 # -------------------------------
 # Knowledge Base
@@ -47,11 +46,12 @@ def llm_generate(prompt: str):
     output = llm_pipeline(prompt, max_length=200, do_sample=True, temperature=0.3)
     return output[0]['generated_text']
 
-class LocalLLM(LLM):
+class LocalLLM(BaseLanguageModel):
     @property
     def _llm_type(self):
         return "local"
-    def _call(self, prompt, stop=None):
+
+    def _call(self, prompt: str, stop=None):
         return llm_generate(prompt)
 
 llm_local = LocalLLM()
