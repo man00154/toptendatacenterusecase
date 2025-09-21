@@ -9,3 +9,5 @@ sentence-transformers
 pyyaml
 rich
 openai
+genai
+sentence-transformers
