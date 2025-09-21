@@ -2,8 +2,8 @@ import os
 import streamlit as st
 import requests
 import json
-import faiss
 import numpy as np
+from numpy.linalg import norm
 from langgraph.graph import StateGraph, END
 from langchain.agents import initialize_agent, Tool
 from langchain.llms.base import LLM
@@ -41,13 +41,7 @@ def call_gemini_api(prompt: str) -> str:
     response.raise_for_status()
     return response.json()["candidates"][0]["content"]["parts"][0]["text"]
 
-# --- Simple NLP (keyword-based retrieval) ---
-def simple_nlp_retriever(query: str) -> str:
-    q = query.lower()
-    matches = [item for item in KNOWLEDGE_BASE if any(word in item.lower() for word in q.split())]
-    return " ".join(matches) if matches else "General data center practices apply."
-
-# --- Embeddings + FAISS for stronger retrieval ---
+# --- Embeddings ---
 def get_embedding(text: str) -> np.ndarray:
     url = f"https://generativelanguage.googleapis.com/v1beta/models/embedding-001:embedContent?key={GOOGLE_API_KEY}"
     payload = {"model": "models/embedding-001", "content": {"parts": [{"text": text}]}}
@@ -57,24 +51,29 @@ def get_embedding(text: str) -> np.ndarray:
     emb = response.json()["embedding"]["value"]
     return np.array(emb, dtype="float32")
 
+# --- Build knowledge embeddings once ---
 @st.cache_resource
-def build_faiss_index():
-    embeddings = [get_embedding(t) for t in KNOWLEDGE_BASE]
-    dim = len(embeddings[0])
-    index = faiss.IndexFlatL2(dim)
-    index.add(np.array(embeddings))
-    return index
+def build_embeddings():
+    return [get_embedding(t) for t in KNOWLEDGE_BASE]
 
-faiss_index = build_faiss_index()
+EMBEDDINGS = build_embeddings()
 
-def vector_retriever(query: str, k: int = 2) -> str:
-    q_emb = get_embedding(query).reshape(1, -1)
-    _, idxs = faiss_index.search(q_emb, k)
-    return " ".join([KNOWLEDGE_BASE[i] for i in idxs[0]])
+# --- Simple RAG retriever (cosine similarity) ---
+def rag_retriever(query: str, k: int = 2) -> str:
+    q_emb = get_embedding(query)
+    sims = [np.dot(q_emb, e) / (norm(q_emb) * norm(e)) for e in EMBEDDINGS]
+    topk_idx = np.argsort(sims)[-k:][::-1]
+    return " ".join([KNOWLEDGE_BASE[i] for i in topk_idx])
+
+# --- Simple NLP (keyword-based retrieval) ---
+def simple_nlp_retriever(query: str) -> str:
+    q = query.lower()
+    matches = [item for item in KNOWLEDGE_BASE if any(word in item.lower() for word in q.split())]
+    return " ".join(matches) if matches else "General data center practices apply."
 
 # --- Agentic AI (strong prompt executor) ---
 def agentic_ai_executor(query: str) -> str:
-    context = vector_retriever(query)
+    context = rag_retriever(query)
     strong_prompt = f"""
     ROLE: Data Center AI Expert
     OBJECTIVE: Provide highly accurate, actionable, and structured insights.
@@ -105,7 +104,7 @@ class GeminiLLM(LLM):
 llm = GeminiLLM()
 tools = [
     Tool(name="Keyword NLP Retriever", func=simple_nlp_retriever, description="Retrieve context with simple NLP."),
-    Tool(name="Vector Retriever", func=vector_retriever, description="Retrieve semantic context using embeddings."),
+    Tool(name="RAG Retriever", func=rag_retriever, description="Retrieve semantic context using embeddings."),
 ]
 agent = initialize_agent(tools, llm, agent="zero-shot-react-description", verbose=False)
 
@@ -114,7 +113,7 @@ def build_graph():
     sg = StateGraph(dict)
 
     def start(state):
-        state["context"] = vector_retriever(state["query"])
+        state["context"] = rag_retriever(state["query"])
         return state
 
     def reasoning(state):
@@ -130,7 +129,7 @@ def build_graph():
     return sg.compile()
 
 # --- Streamlit UI ---
-st.title("🤖 Data Center Agentic AI Assistant")
+st.title("🤖 MANISH SINGH - Data Center Agentic AI Assistant (Simple RAG LLM NLP LANGGRAPH)")
 st.write("This assistant combines: 1 AI Agent (LangChain), 1 Agentic AI, 1 Simple NLP retriever, 1 LangGraph pipeline.")
 
 query = st.text_input("💬 Ask a question:")
@@ -139,7 +138,7 @@ if st.button("Ask"):
     if not GOOGLE_API_KEY:
         st.error("❌ Missing Google API Key! Add it to secrets.toml")
     elif query:
-        # Run LangChain Agent first
+        # Run LangChain Agent
         agent_answer = agent.run(query)
 
         # Run LangGraph + Agentic AI
