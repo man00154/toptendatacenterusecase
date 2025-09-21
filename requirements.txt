@@ -3,7 +3,8 @@ transformers
 torch
 langchain
 langchain-community
-faiss-gpu
+faiss-cpu
 langgraph
 sentence-transformers
 pyyaml
+rich
