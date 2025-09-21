@@ -11,6 +11,8 @@ COPY . /app
 RUN python -m pip install --upgrade pip
 RUN pip install --upgrade pip
 RUN pip install -r requirements.txt
+RUN apt-get update && apt-get install -y build-essential
+
 
 # Expose Streamlit port
 EXPOSE 8501
