@@ -2,31 +2,34 @@ import streamlit as st
 import yaml
 import os
 from langchain.prompts import PromptTemplate
-from langchain_community.embeddings import HuggingFaceEmbeddings
-from langchain_community.vectorstores import FAISS
-from langchain.text_splitter import CharacterTextSplitter
 from langchain.chains import RetrievalQA
+from langchain_community.vectorstores import FAISS
+from langchain_community.embeddings import HuggingFaceEmbeddings
+from langchain.text_splitter import CharacterTextSplitter
 from langgraph.graph import StateGraph, END
-from transformers import AutoTokenizer, AutoModelForCausalLM, pipeline
 from langchain.agents import Tool, AgentExecutor
 from langchain.base_language import BaseLanguageModel
+import openai
 
 # -------------------------------
 # Load secrets.yaml
 # -------------------------------
 if not os.path.exists("secrets.yaml"):
-    st.error("secrets.yaml not found! Please provide secrets.yaml with model and FAISS paths.")
+    st.error("secrets.yaml not found! Please provide secrets.yaml with API key and FAISS path.")
     st.stop()
 
 with open("secrets.yaml", "r") as f:
     secrets = yaml.safe_load(f)
 
-MODEL_PATH = secrets.get("local_llm_model_path")
+OPENAI_API_KEY = secrets.get("openai_api_key")
 VECTORSTORE_PATH = secrets.get("faiss_index_path", "faiss_index")
 
-if not os.path.exists(MODEL_PATH):
-    st.error(f"Local Gemini model not found at: {MODEL_PATH}")
+if not OPENAI_API_KEY:
+    st.error("API key not found in secrets.yaml (openai_api_key)")
     st.stop()
+
+# Set OpenAI API key
+openai.api_key = OPENAI_API_KEY
 
 # -------------------------------
 # Knowledge Base
@@ -59,72 +62,57 @@ use_cases = [
 ]
 
 # -------------------------------
-# Load CPU-only Gemini LLM
+# API-based LLM Wrapper
 # -------------------------------
-try:
-    tokenizer = AutoTokenizer.from_pretrained(MODEL_PATH)
-    model = AutoModelForCausalLM.from_pretrained(MODEL_PATH)
-except Exception as e:
-    st.error(f"Error loading local Gemini model: {e}")
-    st.stop()
-
-llm_pipeline = pipeline(
-    "text-generation",
-    model=model,
-    tokenizer=tokenizer,
-    device=-1  # CPU only
-)
-
-def llm_generate(prompt: str) -> str:
-    output = llm_pipeline(prompt, max_length=200, do_sample=True, temperature=0.3)
-    return str(output[0]['generated_text'])
-
-# -------------------------------
-# Local LLM for AgentExecutor
-# -------------------------------
-class LocalLLM(BaseLanguageModel):
+class APILLM(BaseLanguageModel):
     @property
-    def _llm_type(self) -> str:
-        return "local"
+    def _llm_type(self):
+        return "openai_api"
 
     def _call(self, prompt: str, stop=None) -> str:
-        return llm_generate(prompt)
+        response = openai.Completion.create(
+            engine="text-davinci-003",
+            prompt=prompt,
+            temperature=0.3,
+            max_tokens=200
+        )
+        return response.choices[0].text.strip()
 
-llm_local = LocalLLM()
+llm_api = APILLM()
 
 # -------------------------------
 # FAISS Knowledge Store
 # -------------------------------
 embeddings = HuggingFaceEmbeddings(model_name="sentence-transformers/all-MiniLM-L6-v2")
 
-try:
+if os.path.exists(VECTORSTORE_PATH):
     vectordb = FAISS.load_local(VECTORSTORE_PATH, embeddings)
-except Exception:
+else:
     st.warning("FAISS index not found, creating a new one...")
     splitter = CharacterTextSplitter(chunk_size=200, chunk_overlap=0)
     docs = splitter.create_documents([data_center_knowledge])
     vectordb = FAISS.from_documents(docs, embeddings)
     vectordb.save_local(VECTORSTORE_PATH)
-    st.success("FAISS index created successfully.")
+    st.success("FAISS index created.")
 
 retriever = vectordb.as_retriever()
-qa = RetrievalQA.from_chain_type(llm=llm_local, retriever=retriever)
+qa = RetrievalQA.from_chain_type(llm=llm_api, retriever=retriever)
 
 # -------------------------------
 # Agent Tool
 # -------------------------------
 def agent_1_tool(task: str) -> str:
     template = """
-    Agent Tool: Analyze the task using NLP + RAG + LLM reasoning and provide key insights.
+    Agent Tool: Analyze the task using RAG + LLM reasoning and provide key insights.
     Task: {task}
     """
     prompt = PromptTemplate(template=template, input_variables=["task"])
-    return llm_generate(prompt.format(task=task))
+    return llm_api(prompt.format(task=task))
 
 agent_1 = Tool(
-    name="Agent_1_NLP_Tool",
+    name="Agent_1_API_Tool",
     func=agent_1_tool,
-    description="Analyzes the use case and summarizes key points with NLP + RAG + LLM."
+    description="Analyzes the use case and summarizes key points with RAG + API-based LLM."
 )
 
 # -------------------------------
@@ -140,13 +128,13 @@ def build_langgraph_pipeline():
 
     def run_agent_executor(state):
         query = state["query"]
-        executor = AgentExecutor.from_tools([agent_1], llm=llm_local, verbose=False)
+        executor = AgentExecutor.from_tools([agent_1], llm=llm_api, verbose=False)
         state["agent_result"] = executor.run(query)
         return state
 
     def agentic_summary(state):
-        summary_prompt = f"Summarize actionable hardware insights from RAG and AgentExecutor outputs:\n\nRAG:\n{state['rag_result']}\n\nAgentExecutor Output:\n{state['agent_result']}"
-        state["summary_result"] = llm_generate(summary_prompt)
+        summary_prompt = f"Summarize actionable insights from RAG and AgentExecutor outputs:\n\nRAG:\n{state['rag_result']}\n\nAgentExecutor:\n{state['agent_result']}"
+        state["summary_result"] = llm_api(summary_prompt)
         return state
 
     graph.add_node("retriever", retrieve_knowledge)
@@ -163,8 +151,8 @@ def build_langgraph_pipeline():
 # -------------------------------
 # Streamlit UI
 # -------------------------------
-st.title("MANISH SINGH - AI-Driven Data Center Use Case Insights (CPU-only)")
-st.write("Select a Data Center Use Case and generate insights using RAG + AgentExecutor + Agentic AI.")
+st.title("MANISH SINGH - AI-Driven Data Center Insights (API-based LLM, CPU)")
+st.write("Select a Data Center Use Case and generate insights using RAG + AgentExecutor + API-based LLM.")
 
 selected_use_case = st.selectbox("Choose a Data Center Use Case:", use_cases)
 
