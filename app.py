@@ -124,7 +124,7 @@ def build_langgraph_pipeline():
 # -------------------------------
 # Streamlit UI
 # -------------------------------
-st.title("AI-Driven Data Center: AgentExecutor + Agentic AI")
+st.title("MANISH SINGH -AI-Driven Data Center: AgentExecutor + Agentic AI")
 st.write("RAG + NLP + LLM + Agentic AI + LangGraph + Persistent FAISS")
 
 use_cases = [
