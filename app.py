@@ -4,8 +4,8 @@
 import os
 import streamlit as st
 from langchain_community.vectorstores import FAISS
-from langchain.embeddings.openai import OpenAIEmbeddings     # ✅ classic import
-from langchain.chat_models import ChatOpenAI                 # ✅ classic import
+from langchain.embeddings.openai import OpenAIEmbeddings   # classic import
+from langchain.chat_models import ChatOpenAI               # classic import
 from langchain.text_splitter import CharacterTextSplitter
 
 # --------------------------
@@ -57,7 +57,7 @@ split_docs = text_splitter.split_text(" ".join(docs))
 # --------------------------
 try:
     OPENAI_API_KEY = st.secrets["OPENAI_API_KEY"]
-    os.environ["OPENAI_API_KEY"] = OPENAI_API_KEY  # make available globally
+    os.environ["OPENAI_API_KEY"] = OPENAI_API_KEY  # ensure available to OpenAI client
 except KeyError:
     st.error("OpenAI API key not found. Add `OPENAI_API_KEY` to Streamlit Secrets.")
     st.stop()
@@ -65,7 +65,15 @@ except KeyError:
 # --------------------------
 # OpenAI Embeddings & FAISS index
 # --------------------------
-embeddings = OpenAIEmbeddings(model="text-embedding-3-small", openai_api_key=OPENAI_API_KEY)
+# Use a safe fallback model in case text-embedding-3-small is not enabled
+embedding_model = st.secrets.get("EMBEDDING_MODEL", "text-embedding-3-small")
+# If your account doesn’t support that model, set EMBEDDING_MODEL="text-embedding-ada-002" in secrets.toml
+
+embeddings = OpenAIEmbeddings(
+    model=embedding_model,
+    openai_api_key=OPENAI_API_KEY
+)
+
 vectorstore = FAISS.from_texts(split_docs, embeddings)
 
 # --------------------------
