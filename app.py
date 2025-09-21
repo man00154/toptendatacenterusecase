@@ -1,4 +1,4 @@
-import streamlit as st 
+import streamlit as st
 import yaml
 import os
 from langchain.prompts import PromptTemplate
@@ -15,7 +15,7 @@ import openai
 # Load secrets.yaml
 # -------------------------------
 if not os.path.exists("secrets.yaml"):
-    st.error("secrets.yaml not found! Please provide secrets.yaml with API key and FAISS path.")
+    st.error("secrets.yaml not found! Provide secrets.yaml with OpenAI API key and FAISS path.")
     st.stop()
 
 with open("secrets.yaml", "r") as f:
