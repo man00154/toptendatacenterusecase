@@ -1,12 +1,6 @@
 streamlit
-transformers
-torch
-langchain
-langchain-community
+requests
 faiss-cpu
+numpy
 langgraph
-sentence-transformers
-openai
-sentence-transformers
-tiktoken
-
+langchain
