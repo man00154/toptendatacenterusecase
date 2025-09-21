@@ -5,7 +5,7 @@ from langchain_community.vectorstores import FAISS
 from langchain.text_splitter import CharacterTextSplitter
 from langchain.chains import RetrievalQA
 from langgraph.graph import StateGraph, END
-from transformers import AutoTokenizer, AutoModelForSeq2SeqLM, pipeline
+from transformers import AutoTokenizer, AutoModelForCausalLM, pipeline
 from langchain.agents import Tool, AgentExecutor
 from langchain.base_language import BaseLanguageModel
 import torch
@@ -29,13 +29,15 @@ Use Cases of AI-Driven Data Centers:
 """
 
 # -------------------------------
-# Load Local LLM (free model)
+# Load Local Gemini LLM
 # -------------------------------
-MODEL_NAME = "google/flan-t5-small"
+MODEL_NAME = "gemini-2.0-flash-lite"
+
 tokenizer = AutoTokenizer.from_pretrained(MODEL_NAME)
-model = AutoModelForSeq2SeqLM.from_pretrained(MODEL_NAME)
+model = AutoModelForCausalLM.from_pretrained(MODEL_NAME)
+
 llm_pipeline = pipeline(
-    "text2text-generation",
+    "text-generation",
     model=model,
     tokenizer=tokenizer,
     device=0 if torch.cuda.is_available() else -1
@@ -46,7 +48,7 @@ def llm_generate(prompt: str) -> str:
     return str(output[0]['generated_text'])
 
 # -------------------------------
-# Fixed LocalLLM for AgentExecutor
+# LocalLLM for AgentExecutor
 # -------------------------------
 class LocalLLM(BaseLanguageModel):
     @property
@@ -54,13 +56,12 @@ class LocalLLM(BaseLanguageModel):
         return "local"
 
     def _call(self, prompt: str, stop=None) -> str:
-        result = llm_generate(prompt)
-        return str(result)
+        return llm_generate(prompt)
 
 llm_local = LocalLLM()
 
 # -------------------------------
-# FAISS Persistence
+# FAISS Knowledge Store
 # -------------------------------
 VECTORSTORE_PATH = "faiss_index"
 embeddings = HuggingFaceEmbeddings(model_name="sentence-transformers/all-MiniLM-L6-v2")
@@ -132,8 +133,8 @@ def build_langgraph_pipeline():
 # -------------------------------
 # Streamlit UI
 # -------------------------------
-st.title("MANISH SINGH - AI-Driven Data Center: AgentExecutor + Agentic AI")
-st.write("RAG + NLP + LLM + Agentic AI + LangGraph + Persistent FAISS")
+st.title("MANISH SINGH - AI-Driven Data Center: Gemini LLM + AgentExecutor + Agentic AI")
+st.write("RAG + NLP + Local Gemini LLM + Agentic AI + LangGraph + Persistent FAISS")
 
 use_cases = [
     "Energy Optimization & Cooling",
