@@ -1,13 +1,13 @@
 # app.py
 # Before running:
-# pip install streamlit langchain langchain_community openai faiss-cpu tiktoken
+# pip install streamlit langchain langchain_community faiss-cpu google-cloud-aiplatform
 
 import os
 import streamlit as st
 from langchain_community.vectorstores import FAISS
-from langchain.embeddings.openai import OpenAIEmbeddings
-from langchain.chat_models import ChatOpenAI
 from langchain.text_splitter import CharacterTextSplitter
+from langchain.chat_models import ChatVertexAI
+from langchain.embeddings import VertexAIEmbeddings
 
 # --------------------------
 # Use Cases
@@ -50,54 +50,40 @@ docs = [
     "Sustainability & Green Initiatives: AI optimizes energy and reduces carbon footprint.",
 ]
 
+# --------------------------
 # Split text into chunks
+# --------------------------
 text_splitter = CharacterTextSplitter(chunk_size=200, chunk_overlap=20)
 split_docs = text_splitter.split_text(" ".join(docs))
 
 # --------------------------
-# Load API key from Streamlit secrets
+# Load Google Gemini API key from Streamlit secrets
 # --------------------------
 try:
-    OPENAI_API_KEY = st.secrets["OPENAI_API_KEY"]
-    os.environ["OPENAI_API_KEY"] = OPENAI_API_KEY
+    GEMINI_API_KEY = st.secrets["GOOGLE_API_KEY"]
+    os.environ["GOOGLE_API_KEY"] = GEMINI_API_KEY
 except KeyError:
-    st.error("❌ OpenAI API key not found. Add `OPENAI_API_KEY` to .streamlit/secrets.toml")
+    st.error("❌ Google Gemini API key not found. Add `GOOGLE_API_KEY` to Streamlit Secrets")
     st.stop()
 
 # --------------------------
-# Create Embeddings & FAISS index
+# Create embeddings and FAISS index
 # --------------------------
-embedding_model = st.secrets.get("EMBEDDING_MODEL", "text-embedding-3-small")
-# fallback if your account doesn't have text-embedding-3-small:
-# EMBEDDING_MODEL = "text-embedding-ada-002" in secrets.toml
-
-try:
-    embeddings = OpenAIEmbeddings(
-        model=embedding_model,
-        openai_api_key=OPENAI_API_KEY
-    )
-    vectorstore = FAISS.from_texts(split_docs, embeddings)
-except Exception as e:
-    st.error(f"❌ Embedding or FAISS index creation failed: {e}")
-    st.stop()
+embeddings = VertexAIEmbeddings(api_key=GEMINI_API_KEY)
+vectorstore = FAISS.from_texts(split_docs, embeddings)
 
 # --------------------------
-# Helper: simple NLP normalization
+# Helper: normalize text
 # --------------------------
 def simple_nlp(text: str) -> str:
     return " ".join(text.lower().strip().split())
 
 # --------------------------
-# Simple AI Agent
+# AI Agent
 # --------------------------
 class SimpleAIAgent:
-    def __init__(self, name="AI Agent"):
-        self.name = name
-        self.llm = ChatOpenAI(
-            model_name="gpt-3.5-turbo",
-            temperature=0.3,
-            openai_api_key=OPENAI_API_KEY
-        )
+    def __init__(self):
+        self.llm = ChatVertexAI(api_key=GEMINI_API_KEY, temperature=0.3)
 
     def respond(self, prompt: str) -> str:
         return self.llm.predict(prompt)
@@ -114,48 +100,21 @@ class AgenticAI:
         return self.agent.respond(final_prompt)
 
 # --------------------------
-# LangGraph (execution trace)
-# --------------------------
-class LangGraph:
-    def __init__(self):
-        self.nodes = []
-
-    def add_node(self, name: str, result: str):
-        self.nodes.append({"node": name, "result": result})
-
-    def show_graph(self):
-        st.write("### LangGraph Execution Trace")
-        for n in self.nodes:
-            st.write(f"Node: {n['node']} -> Result: {n['result'][:100]}...")
-
-# --------------------------
 # Streamlit UI
 # --------------------------
-st.title("MANISH SINGH - AI-Driven Data Center Assistant with Agent & LangGraph")
+st.title("AI-Driven Data Center Assistant (Google Gemini)")
 
 selected_use_case = st.selectbox("Select a Use Case:", use_cases)
 user_query = st.text_input("Ask your question about the use case:")
 
 if user_query:
     clean_query = simple_nlp(user_query)
-
-    # Retrieve relevant context from FAISS
     retrieved_docs = vectorstore.similarity_search(clean_query, k=2)
     context = " ".join([doc.page_content for doc in retrieved_docs])
 
-    # Initialize Agentic AI
     ai_agent = SimpleAIAgent()
     agentic_ai = AgenticAI(ai_agent)
-
-    # Generate answer
     answer = agentic_ai.handle_query(clean_query, context)
 
-    # Record execution trace
-    lg = LangGraph()
-    lg.add_node("Retrieve Context", context)
-    lg.add_node("AI Response", answer)
-
-    # Display output
     st.write("### AI Answer:")
     st.write(answer)
-    lg.show_graph()
