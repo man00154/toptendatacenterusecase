@@ -29,7 +29,7 @@ Use Cases of AI-Driven Data Centers:
 """
 
 # -------------------------------
-# Load Free Public LLM
+# Load Free Local LLM
 # -------------------------------
 MODEL_NAME = "google/flan-t5-small"
 tokenizer = AutoTokenizer.from_pretrained(MODEL_NAME)
@@ -42,22 +42,25 @@ llm_pipeline = pipeline(
     device=0 if torch.cuda.is_available() else -1
 )
 
-def llm_generate(prompt: str):
+def llm_generate(prompt: str) -> str:
     output = llm_pipeline(prompt, max_length=200, do_sample=True, temperature=0.3)
-    return output[0]['generated_text']
+    return str(output[0]['generated_text'])
 
+# -------------------------------
+# Fixed LocalLLM for AgentExecutor
+# -------------------------------
 class LocalLLM(BaseLanguageModel):
     @property
-    def _llm_type(self):
+    def _llm_type(self) -> str:
         return "local"
 
-    def _call(self, prompt: str, stop=None):
+    def _call(self, prompt: str, stop=None) -> str:
         return llm_generate(prompt)
 
 llm_local = LocalLLM()
 
 # -------------------------------
-# FAISS Persistence (Robust)
+# FAISS Persistence
 # -------------------------------
 VECTORSTORE_PATH = "faiss_index"
 embeddings = HuggingFaceEmbeddings(model_name="sentence-transformers/all-MiniLM-L6-v2")
@@ -76,7 +79,7 @@ qa = RetrievalQA.from_chain_type(llm=llm_local, retriever=retriever)
 # -------------------------------
 # Agent Tool
 # -------------------------------
-def agent_1_tool(task: str):
+def agent_1_tool(task: str) -> str:
     template = """
     Agent Tool: Analyze the task using NLP + RAG + LLM reasoning and provide key insights.
     Task: {task}
@@ -91,7 +94,7 @@ agent_1 = Tool(
 )
 
 # -------------------------------
-# LangGraph Workflow with Agentic AI
+# LangGraph Workflow
 # -------------------------------
 def build_langgraph_pipeline():
     graph = StateGraph(dict)
