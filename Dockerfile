@@ -7,12 +7,18 @@ WORKDIR /app
 # Copy project files
 COPY . /app
 
-# Install dependencies
-RUN python -m pip install --upgrade pip
-RUN pip install --upgrade pip
-RUN pip install -r requirements.txt
-RUN apt-get update && apt-get install -y build-essential
+# Install system dependencies needed for FAISS and sentence-transformers
+RUN apt-get update && apt-get install -y \
+    build-essential \
+    git \
+    wget \
+    && rm -rf /var/lib/apt/lists/*
 
+# Upgrade pip
+RUN python -m pip install --upgrade pip
+
+# Install Python dependencies
+RUN pip install -r requirements.txt
 
 # Expose Streamlit port
 EXPOSE 8501
