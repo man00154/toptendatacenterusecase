@@ -1,11 +1,12 @@
-# Install dependencies before running:
-# pip install streamlit langchain langchain_community openai faiss-cpu sentence-transformers torch transformers tiktoken
+# Before running:
+# pip install streamlit langchain langchain_community openai faiss-cpu tiktoken
 
+import os
 import streamlit as st
 from langchain_community.vectorstores import FAISS
-from langchain.embeddings.openai import OpenAIEmbeddings
+from langchain_openai import OpenAIEmbeddings   # ✅ correct import
 from langchain.text_splitter import CharacterTextSplitter
-from langchain.chat_models import ChatOpenAI
+from langchain_openai import ChatOpenAI         # ✅ correct import
 
 # --------------------------
 # Use Cases
@@ -20,21 +21,20 @@ use_cases = [
     "Data Center Digital Twin",
     "Incident Response & Self-Healing",
     "AI-Augmented Monitoring & Alerts",
-    "Sustainability & Green Initiatives"
+    "Sustainability & Green Initiatives",
 ]
 
 # --------------------------
 # Strong Prompt Template
 # --------------------------
 strong_prompt = """
-You are an expert AI assistant specialized in AI-driven data centers. 
-You will answer queries based on the selected use case.
-Provide detailed, clear, and actionable insights.
-Include examples or best practices wherever possible.
+You are an expert AI assistant specialized in AI-driven data centers.
+Answer queries based on the selected use case.
+Provide detailed, clear, and actionable insights with examples or best practices.
 """
 
 # --------------------------
-# Sample Knowledge Base for FAISS
+# Sample Knowledge Base
 # --------------------------
 docs = [
     "Energy Optimization & Cooling: Use AI to reduce power consumption of cooling systems.",
@@ -46,7 +46,7 @@ docs = [
     "Data Center Digital Twin: AI simulates the full data center digitally.",
     "Incident Response & Self-Healing: AI auto-resolves common issues.",
     "AI-Augmented Monitoring & Alerts: AI enhances monitoring dashboards with predictions.",
-    "Sustainability & Green Initiatives: AI optimizes energy and reduces carbon footprint."
+    "Sustainability & Green Initiatives: AI optimizes energy and reduces carbon footprint.",
 ]
 
 text_splitter = CharacterTextSplitter(chunk_size=200, chunk_overlap=20)
@@ -57,26 +57,21 @@ split_docs = text_splitter.split_text(" ".join(docs))
 # --------------------------
 try:
     OPENAI_API_KEY = st.secrets["OPENAI_API_KEY"]
+    os.environ["OPENAI_API_KEY"] = OPENAI_API_KEY  # make available globally
 except KeyError:
-    st.error(
-        "OpenAI API key not found. Add `OPENAI_API_KEY` to secrets.toml or Streamlit Secrets."
-    )
+    st.error("OpenAI API key not found. Add `OPENAI_API_KEY` to Streamlit Secrets.")
     st.stop()
 
 # --------------------------
-# OpenAI Embeddings
+# OpenAI Embeddings & FAISS index
 # --------------------------
-embeddings = OpenAIEmbeddings(
-    model="text-embedding-3-small",
-    openai_api_key=OPENAI_API_KEY
-)
-
+embeddings = OpenAIEmbeddings(model="text-embedding-3-small")
 vectorstore = FAISS.from_texts(split_docs, embeddings)
 
 # --------------------------
 # Simple NLP Preprocessing
 # --------------------------
-def simple_nlp(text):
+def simple_nlp(text: str) -> str:
     return " ".join(text.lower().strip().split())
 
 # --------------------------
@@ -85,21 +80,19 @@ def simple_nlp(text):
 class SimpleAIAgent:
     def __init__(self, name="AI Agent"):
         self.name = name
-        self.llm = ChatOpenAI(
-            model_name="gpt-3.5-turbo",
-            temperature=0.3,
-            openai_api_key=OPENAI_API_KEY
-        )
-    def respond(self, prompt):
+        self.llm = ChatOpenAI(model="gpt-3.5-turbo", temperature=0.3)
+
+    def respond(self, prompt: str) -> str:
         return self.llm.predict(prompt)
 
 # --------------------------
 # Agentic AI
 # --------------------------
 class AgenticAI:
-    def __init__(self, agent):
+    def __init__(self, agent: SimpleAIAgent):
         self.agent = agent
-    def handle_query(self, query, context):
+
+    def handle_query(self, query: str, context: str) -> str:
         final_prompt = f"{strong_prompt}\nContext: {context}\nQuestion: {query}\nAnswer:"
         return self.agent.respond(final_prompt)
 
@@ -109,8 +102,10 @@ class AgenticAI:
 class LangGraph:
     def __init__(self):
         self.nodes = []
-    def add_node(self, name, result):
+
+    def add_node(self, name: str, result: str):
         self.nodes.append({"node": name, "result": result})
+
     def show_graph(self):
         st.write("### LangGraph Execution Trace")
         for n in self.nodes:
@@ -126,10 +121,10 @@ user_query = st.text_input("Ask your question about the use case:")
 
 if user_query:
     clean_query = simple_nlp(user_query)
-    
+
     # Retrieve relevant documents from FAISS
-    docs = vectorstore.similarity_search(clean_query, k=2)
-    context = " ".join([doc.page_content for doc in docs])
+    retrieved_docs = vectorstore.similarity_search(clean_query, k=2)
+    context = " ".join([doc.page_content for doc in retrieved_docs])
 
     # Initialize Agent & Agentic AI
     ai_agent = SimpleAIAgent()
@@ -143,9 +138,7 @@ if user_query:
     lg.add_node("Retrieve Context", context)
     lg.add_node("AI Response", answer)
 
-    # Display AI answer
+    # Display results
     st.write("### AI Answer:")
     st.write(answer)
-    
-    # Display LangGraph trace
     lg.show_graph()
