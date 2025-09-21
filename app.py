@@ -1,5 +1,6 @@
 import streamlit as st
 import yaml
+import os
 from langchain.prompts import PromptTemplate
 from langchain_community.embeddings import HuggingFaceEmbeddings
 from langchain_community.vectorstores import FAISS
@@ -9,17 +10,23 @@ from langgraph.graph import StateGraph, END
 from transformers import AutoTokenizer, AutoModelForCausalLM, pipeline
 from langchain.agents import Tool, AgentExecutor
 from langchain.base_language import BaseLanguageModel
-import torch
-import os
 
 # -------------------------------
-# Load secrets
+# Load secrets.yaml
 # -------------------------------
+if not os.path.exists("secrets.yaml"):
+    st.error("secrets.yaml not found! Please provide secrets.yaml with model and FAISS paths.")
+    st.stop()
+
 with open("secrets.yaml", "r") as f:
     secrets = yaml.safe_load(f)
 
-MODEL_PATH = secrets["local_llm_model_path"]
+MODEL_PATH = secrets.get("local_llm_model_path")
 VECTORSTORE_PATH = secrets.get("faiss_index_path", "faiss_index")
+
+if not os.path.exists(MODEL_PATH):
+    st.error(f"Local Gemini model not found at: {MODEL_PATH}")
+    st.stop()
 
 # -------------------------------
 # Knowledge Base
@@ -52,16 +59,20 @@ use_cases = [
 ]
 
 # -------------------------------
-# Load Local Gemini LLM
+# Load CPU-only Gemini LLM
 # -------------------------------
-tokenizer = AutoTokenizer.from_pretrained(MODEL_PATH)
-model = AutoModelForCausalLM.from_pretrained(MODEL_PATH)
+try:
+    tokenizer = AutoTokenizer.from_pretrained(MODEL_PATH)
+    model = AutoModelForCausalLM.from_pretrained(MODEL_PATH)
+except Exception as e:
+    st.error(f"Error loading local Gemini model: {e}")
+    st.stop()
 
 llm_pipeline = pipeline(
     "text-generation",
     model=model,
     tokenizer=tokenizer,
-    device=0 if torch.cuda.is_available() else -1
+    device=-1  # CPU only
 )
 
 def llm_generate(prompt: str) -> str:
@@ -89,10 +100,12 @@ embeddings = HuggingFaceEmbeddings(model_name="sentence-transformers/all-MiniLM-
 try:
     vectordb = FAISS.load_local(VECTORSTORE_PATH, embeddings)
 except Exception:
+    st.warning("FAISS index not found, creating a new one...")
     splitter = CharacterTextSplitter(chunk_size=200, chunk_overlap=0)
     docs = splitter.create_documents([data_center_knowledge])
     vectordb = FAISS.from_documents(docs, embeddings)
     vectordb.save_local(VECTORSTORE_PATH)
+    st.success("FAISS index created successfully.")
 
 retriever = vectordb.as_retriever()
 qa = RetrievalQA.from_chain_type(llm=llm_local, retriever=retriever)
@@ -150,7 +163,7 @@ def build_langgraph_pipeline():
 # -------------------------------
 # Streamlit UI
 # -------------------------------
-st.title("MANISH SINGH - AI -Driven Data Center Use Case Insights")
+st.title("MANISH SINGH - AI-Driven Data Center Use Case Insights (CPU-only)")
 st.write("Select a Data Center Use Case and generate insights using RAG + AgentExecutor + Agentic AI.")
 
 selected_use_case = st.selectbox("Choose a Data Center Use Case:", use_cases)
