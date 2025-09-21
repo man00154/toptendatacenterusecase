@@ -4,9 +4,9 @@
 import os
 import streamlit as st
 from langchain_community.vectorstores import FAISS
-from langchain_openai import OpenAIEmbeddings   # ✅ correct import
+from langchain.embeddings.openai import OpenAIEmbeddings     # ✅ classic import
+from langchain.chat_models import ChatOpenAI                 # ✅ classic import
 from langchain.text_splitter import CharacterTextSplitter
-from langchain_openai import ChatOpenAI         # ✅ correct import
 
 # --------------------------
 # Use Cases
@@ -65,7 +65,7 @@ except KeyError:
 # --------------------------
 # OpenAI Embeddings & FAISS index
 # --------------------------
-embeddings = OpenAIEmbeddings(model="text-embedding-3-small")
+embeddings = OpenAIEmbeddings(model="text-embedding-3-small", openai_api_key=OPENAI_API_KEY)
 vectorstore = FAISS.from_texts(split_docs, embeddings)
 
 # --------------------------
@@ -80,7 +80,11 @@ def simple_nlp(text: str) -> str:
 class SimpleAIAgent:
     def __init__(self, name="AI Agent"):
         self.name = name
-        self.llm = ChatOpenAI(model="gpt-3.5-turbo", temperature=0.3)
+        self.llm = ChatOpenAI(
+            model_name="gpt-3.5-turbo",
+            temperature=0.3,
+            openai_api_key=OPENAI_API_KEY
+        )
 
     def respond(self, prompt: str) -> str:
         return self.llm.predict(prompt)
