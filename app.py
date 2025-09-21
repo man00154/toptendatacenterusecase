@@ -32,7 +32,6 @@ Use Cases of AI-Driven Data Centers:
 # Load Local Gemini LLM
 # -------------------------------
 MODEL_NAME = "gemini-2.0-flash-lite"
-
 tokenizer = AutoTokenizer.from_pretrained(MODEL_NAME)
 model = AutoModelForCausalLM.from_pretrained(MODEL_NAME)
 
@@ -48,7 +47,7 @@ def llm_generate(prompt: str) -> str:
     return str(output[0]['generated_text'])
 
 # -------------------------------
-# LocalLLM for AgentExecutor
+# Local LLM for AgentExecutor
 # -------------------------------
 class LocalLLM(BaseLanguageModel):
     @property
@@ -131,29 +130,16 @@ def build_langgraph_pipeline():
     return graph.compile()
 
 # -------------------------------
-# Streamlit UI
+# Streamlit UI - User Input
 # -------------------------------
-st.title("MANISH SINGH - AI-Driven Data Center: Gemini LLM + AgentExecutor + Agentic AI")
-st.write("RAG + NLP + Local Gemini LLM + Agentic AI + LangGraph + Persistent FAISS")
+st.title("MANISH SINGH - AI-Driven Data Center: Custom Query + AgentExecutor + Agentic AI")
+st.write("Enter your own query for RAG + NLP + Local Gemini LLM + Agentic AI + LangGraph")
 
-use_cases = [
-    "Energy Optimization & Cooling",
-    "Predictive Maintenance",
-    "Automated Workload Management",
-    "Security & Threat Detection",
-    "Capacity Planning & Forecasting",
-    "Network Traffic Optimization",
-    "Data Center Digital Twin",
-    "Incident Response & Self-Healing",
-    "AI-Augmented Monitoring & Alerts",
-    "Sustainability & Green Initiatives"
-]
+user_query = st.text_input("Enter your Data Center Use Case or Query:")
 
-choice = st.selectbox("Choose a Data Center Use Case:", use_cases)
-
-if st.button("Run Use Case"):
+if st.button("Run Query") and user_query.strip():
     workflow = build_langgraph_pipeline()
-    result = workflow.invoke({"query": choice})
+    result = workflow.invoke({"query": user_query})
 
     st.subheader("🔎 RAG Retrieved Knowledge")
     st.write(result["rag_result"])
