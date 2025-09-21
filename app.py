@@ -5,8 +5,9 @@
 import os
 import streamlit as st
 from langchain_community.vectorstores import FAISS
+from langchain.embeddings.openai import OpenAIEmbeddings     # ✅ fixed import
+from langchain.chat_models import ChatOpenAI               # ✅ fixed import
 from langchain.text_splitter import CharacterTextSplitter
-from langchain_openai import OpenAIEmbeddings, ChatOpenAI
 
 # --------------------------
 # Use Cases
