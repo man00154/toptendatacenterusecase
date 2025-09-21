@@ -6,8 +6,5 @@ langchain-community
 faiss-cpu
 langgraph
 sentence-transformers
-pyyaml
-rich
 openai
-genai
 sentence-transformers
