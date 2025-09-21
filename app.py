@@ -1,4 +1,5 @@
 import streamlit as st
+import yaml
 from langchain.prompts import PromptTemplate
 from langchain_community.embeddings import HuggingFaceEmbeddings
 from langchain_community.vectorstores import FAISS
@@ -10,6 +11,15 @@ from langchain.agents import Tool, AgentExecutor
 from langchain.base_language import BaseLanguageModel
 import torch
 import os
+
+# -------------------------------
+# Load secrets
+# -------------------------------
+with open("secrets.yaml", "r") as f:
+    secrets = yaml.safe_load(f)
+
+MODEL_PATH = secrets["local_llm_model_path"]
+VECTORSTORE_PATH = secrets.get("faiss_index_path", "faiss_index")
 
 # -------------------------------
 # Knowledge Base
@@ -44,9 +54,8 @@ use_cases = [
 # -------------------------------
 # Load Local Gemini LLM
 # -------------------------------
-MODEL_NAME = "gemini-2.0-flash-lite"
-tokenizer = AutoTokenizer.from_pretrained(MODEL_NAME)
-model = AutoModelForCausalLM.from_pretrained(MODEL_NAME)
+tokenizer = AutoTokenizer.from_pretrained(MODEL_PATH)
+model = AutoModelForCausalLM.from_pretrained(MODEL_PATH)
 
 llm_pipeline = pipeline(
     "text-generation",
@@ -75,7 +84,6 @@ llm_local = LocalLLM()
 # -------------------------------
 # FAISS Knowledge Store
 # -------------------------------
-VECTORSTORE_PATH = "faiss_index"
 embeddings = HuggingFaceEmbeddings(model_name="sentence-transformers/all-MiniLM-L6-v2")
 
 try:
@@ -142,7 +150,7 @@ def build_langgraph_pipeline():
 # -------------------------------
 # Streamlit UI
 # -------------------------------
-st.title("MANISH SINGH - AI-Driven Data Center Use Case Insights")
+st.title("MANISH SINGH - AI -Driven Data Center Use Case Insights")
 st.write("Select a Data Center Use Case and generate insights using RAG + AgentExecutor + Agentic AI.")
 
 selected_use_case = st.selectbox("Choose a Data Center Use Case:", use_cases)
