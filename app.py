@@ -10,6 +10,7 @@ from langchain.agents import Tool, AgentExecutor
 from langchain.llms.base import LLM
 import torch
 import os
+import shutil
 
 # -------------------------------
 # Knowledge Base
@@ -35,7 +36,6 @@ MODEL_NAME = "google/flan-t5-small"
 tokenizer = AutoTokenizer.from_pretrained(MODEL_NAME)
 model = AutoModelForSeq2SeqLM.from_pretrained(MODEL_NAME)
 
-# Use pipeline for seq2seq generation
 llm_pipeline = pipeline(
     "text2text-generation",
     model=model,
@@ -57,19 +57,16 @@ class LocalLLM(LLM):
 llm_local = LocalLLM()
 
 # -------------------------------
-# FAISS Persistence
+# FAISS Persistence (Robust)
 # -------------------------------
 VECTORSTORE_PATH = "faiss_index"
+embeddings = HuggingFaceEmbeddings(model_name="sentence-transformers/all-MiniLM-L6-v2")
 
-if os.path.exists(VECTORSTORE_PATH):
-    vectordb = FAISS.load_local(
-        VECTORSTORE_PATH,
-        HuggingFaceEmbeddings(model_name="sentence-transformers/all-MiniLM-L6-v2")
-    )
-else:
+try:
+    vectordb = FAISS.load_local(VECTORSTORE_PATH, embeddings)
+except Exception:
     splitter = CharacterTextSplitter(chunk_size=200, chunk_overlap=0)
     docs = splitter.create_documents([data_center_knowledge])
-    embeddings = HuggingFaceEmbeddings(model_name="sentence-transformers/all-MiniLM-L6-v2")
     vectordb = FAISS.from_documents(docs, embeddings)
     vectordb.save_local(VECTORSTORE_PATH)
 
@@ -99,19 +96,22 @@ agent_1 = Tool(
 def build_langgraph_pipeline():
     graph = StateGraph(dict)
 
+    # Step 1: Retrieve Knowledge
     def retrieve_knowledge(state):
         query = state["query"]
         state["rag_result"] = qa.run(query)
         return state
 
+    # Step 2: Run AgentExecutor
     def run_agent_executor(state):
         query = state["query"]
         executor = AgentExecutor.from_tools([agent_1], llm=llm_local, verbose=False)
         state["agent_result"] = executor.run(query)
         return state
 
+    # Step 3: Agentic AI Summary
     def agentic_summary(state):
-        summary_prompt = f"Summarize for actionable hardware insights:\n\nRAG:\n{state['rag_result']}\n\nAgentExecutor Output:\n{state['agent_result']}"
+        summary_prompt = f"Summarize actionable hardware insights from RAG and AgentExecutor outputs:\n\nRAG:\n{state['rag_result']}\n\nAgentExecutor Output:\n{state['agent_result']}"
         state["summary_result"] = llm_generate(summary_prompt)
         return state
 
