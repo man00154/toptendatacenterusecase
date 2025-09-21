@@ -5,7 +5,7 @@ from langchain_community.vectorstores import FAISS
 from langchain.text_splitter import CharacterTextSplitter
 from langchain.chains import RetrievalQA
 from langgraph.graph import StateGraph, END
-from transformers import AutoTokenizer, AutoModelForCausalLM, pipeline
+from transformers import AutoTokenizer, AutoModelForSeq2SeqLM, pipeline
 from langchain.agents import Tool, AgentExecutor
 from langchain.llms.base import LLM
 import torch
@@ -29,13 +29,15 @@ Use Cases of AI-Driven Data Centers:
 """
 
 # -------------------------------
-# Load Local LLM
+# Load Free Public LLM
 # -------------------------------
-MODEL_NAME = "gemini-2.0-flash-lite"
+MODEL_NAME = "google/flan-t5-small"
 tokenizer = AutoTokenizer.from_pretrained(MODEL_NAME)
-model = AutoModelForCausalLM.from_pretrained(MODEL_NAME)
+model = AutoModelForSeq2SeqLM.from_pretrained(MODEL_NAME)
+
+# Use pipeline for seq2seq generation
 llm_pipeline = pipeline(
-    "text-generation",
+    "text2text-generation",
     model=model,
     tokenizer=tokenizer,
     device=0 if torch.cuda.is_available() else -1
@@ -60,7 +62,10 @@ llm_local = LocalLLM()
 VECTORSTORE_PATH = "faiss_index"
 
 if os.path.exists(VECTORSTORE_PATH):
-    vectordb = FAISS.load_local(VECTORSTORE_PATH, HuggingFaceEmbeddings(model_name="sentence-transformers/all-MiniLM-L6-v2"))
+    vectordb = FAISS.load_local(
+        VECTORSTORE_PATH,
+        HuggingFaceEmbeddings(model_name="sentence-transformers/all-MiniLM-L6-v2")
+    )
 else:
     splitter = CharacterTextSplitter(chunk_size=200, chunk_overlap=0)
     docs = splitter.create_documents([data_center_knowledge])
@@ -89,7 +94,7 @@ agent_1 = Tool(
 )
 
 # -------------------------------
-# LangGraph Workflow with Agentic AI step
+# LangGraph Workflow with Agentic AI
 # -------------------------------
 def build_langgraph_pipeline():
     graph = StateGraph(dict)
@@ -124,7 +129,7 @@ def build_langgraph_pipeline():
 # -------------------------------
 # Streamlit UI
 # -------------------------------
-st.title("MANISH SINGH -AI-Driven Data Center: AgentExecutor + Agentic AI")
+st.title("MANISH SINGH - AI-Driven Data Center: AgentExecutor + Agentic AI")
 st.write("RAG + NLP + LLM + Agentic AI + LangGraph + Persistent FAISS")
 
 use_cases = [
