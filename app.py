@@ -1,31 +1,12 @@
 # Install these packages before running
-# pip install streamlit langchain langchain_community openai faiss-cpu genai
+# pip install streamlit langchain langchain_community openai faiss-cpu sentence-transformers
 
 import streamlit as st
 from langchain.prompts import PromptTemplate
 from langchain_community.vectorstores import FAISS
 from langchain.embeddings.openai import OpenAIEmbeddings
 from langchain.text_splitter import CharacterTextSplitter
-import genai
-
-# --------------------------
-# Gemini API Setup
-# --------------------------
-MODEL_NAME = "gemini-2.0-flash-lite"
-API_URL = f"https://generativelanguage.googleapis.com/v1beta/models/{MODEL_NAME}:generateContent"
-
-# Retrieve the API key from Streamlit secrets
-try:
-    API_KEY = st.secrets["GEMINI_API_KEY"]
-except KeyError:
-    st.error(
-        "API key not found. Please add your `GEMINI_API_KEY` to the `secrets.toml` file or "
-        "as a secret in your Streamlit Cloud app settings."
-    )
-    st.stop()  # Stop the app if the key is missing
-
-# Configure the genai library with the API key
-genai.configure(api_key=API_KEY)
+from langchain.chat_models import ChatOpenAI
 
 # --------------------------
 # Use Cases
@@ -91,24 +72,21 @@ vectorstore = FAISS.from_texts(split_docs, embeddings)
 # Simple NLP Preprocessing
 # --------------------------
 def simple_nlp(text):
-    # Convert text to lowercase and remove extra spaces
     return " ".join(text.lower().strip().split())
 
 # --------------------------
-# Simple Agent
+# Simple Agent using OpenAI LLM
 # --------------------------
 class SimpleAIAgent:
     def __init__(self, name="AI Agent"):
         self.name = name
-    def respond(self, prompt):
-        # Call Gemini API
-        response = genai.generate(
-            model=MODEL_NAME,
-            prompt=prompt,
+        self.llm = ChatOpenAI(
+            model_name="gpt-3.5-turbo",
             temperature=0.3,
-            max_output_tokens=500
+            openai_api_key=OPENAI_API_KEY
         )
-        return response.output_text
+    def respond(self, prompt):
+        return self.llm.predict(prompt)
 
 # --------------------------
 # Agentic AI (delegates tasks)
@@ -136,34 +114,27 @@ class LangGraph:
 # --------------------------
 # Streamlit UI
 # --------------------------
-st.title("MANISH SINGH - AI-Driven Data Center Assistant with Agent & LangGraph")
+st.title("AI-Driven Data Center Assistant with Agent & LangGraph")
 
 selected_use_case = st.selectbox("Select a Use Case:", use_cases)
 user_query = st.text_input("Ask your question about the use case:")
 
 if user_query:
-    # Preprocess query using simple NLP
     clean_query = simple_nlp(user_query)
     
-    # Retrieve relevant docs
     docs = vectorstore.similarity_search(clean_query, k=2)
     context = " ".join([doc.page_content for doc in docs])
 
-    # Initialize Agent & Agentic AI
     ai_agent = SimpleAIAgent()
     agentic_ai = AgenticAI(ai_agent)
-    
-    # Use Agentic AI to handle the query
+
     answer = agentic_ai.handle_query(clean_query, context)
-    
-    # Log in LangGraph
+
     lg = LangGraph()
     lg.add_node("Retrieve Context", context)
     lg.add_node("AI Response", answer)
-    
-    # Display AI answer
+
     st.write("### AI Answer:")
     st.write(answer)
     
-    # Display LangGraph trace
     lg.show_graph()
