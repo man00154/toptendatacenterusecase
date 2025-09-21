@@ -1,12 +1,12 @@
+# app.py
 # Before running:
-# pip install streamlit langchain langchain_community openai faiss-cpu tiktoken
+# pip install streamlit langchain langchain_community langchain-openai openai faiss-cpu tiktoken
 
 import os
 import streamlit as st
 from langchain_community.vectorstores import FAISS
-from langchain.embeddings.openai import OpenAIEmbeddings   # classic import
-from langchain.chat_models import ChatOpenAI               # classic import
 from langchain.text_splitter import CharacterTextSplitter
+from langchain_openai import OpenAIEmbeddings, ChatOpenAI
 
 # --------------------------
 # Use Cases
@@ -25,7 +25,7 @@ use_cases = [
 ]
 
 # --------------------------
-# Strong Prompt Template
+# Prompt Template
 # --------------------------
 strong_prompt = """
 You are an expert AI assistant specialized in AI-driven data centers.
@@ -34,7 +34,7 @@ Provide detailed, clear, and actionable insights with examples or best practices
 """
 
 # --------------------------
-# Sample Knowledge Base
+# Knowledge Base
 # --------------------------
 docs = [
     "Energy Optimization & Cooling: Use AI to reduce power consumption of cooling systems.",
@@ -49,35 +49,29 @@ docs = [
     "Sustainability & Green Initiatives: AI optimizes energy and reduces carbon footprint.",
 ]
 
+# Split text into chunks
 text_splitter = CharacterTextSplitter(chunk_size=200, chunk_overlap=20)
 split_docs = text_splitter.split_text(" ".join(docs))
 
 # --------------------------
-# OpenAI API Key
+# Load API key from Streamlit secrets (Option 1)
 # --------------------------
 try:
     OPENAI_API_KEY = st.secrets["OPENAI_API_KEY"]
-    os.environ["OPENAI_API_KEY"] = OPENAI_API_KEY  # ensure available to OpenAI client
+    # Export to environment so LangChain/OpenAI clients can pick it up
+    os.environ["OPENAI_API_KEY"] = OPENAI_API_KEY
 except KeyError:
-    st.error("OpenAI API key not found. Add `OPENAI_API_KEY` to Streamlit Secrets.")
+    st.error("❌ OpenAI API key not found. Add `OPENAI_API_KEY` to .streamlit/secrets.toml")
     st.stop()
 
 # --------------------------
-# OpenAI Embeddings & FAISS index
+# Create Embeddings & Vectorstore
 # --------------------------
-# Use a safe fallback model in case text-embedding-3-small is not enabled
-embedding_model = st.secrets.get("EMBEDDING_MODEL", "text-embedding-3-small")
-# If your account doesn’t support that model, set EMBEDDING_MODEL="text-embedding-ada-002" in secrets.toml
-
-embeddings = OpenAIEmbeddings(
-    model=embedding_model,
-    openai_api_key=OPENAI_API_KEY
-)
-
+embeddings = OpenAIEmbeddings(model="text-embedding-3-small")
 vectorstore = FAISS.from_texts(split_docs, embeddings)
 
 # --------------------------
-# Simple NLP Preprocessing
+# Helper: Simple text normalization
 # --------------------------
 def simple_nlp(text: str) -> str:
     return " ".join(text.lower().strip().split())
@@ -88,17 +82,13 @@ def simple_nlp(text: str) -> str:
 class SimpleAIAgent:
     def __init__(self, name="AI Agent"):
         self.name = name
-        self.llm = ChatOpenAI(
-            model_name="gpt-3.5-turbo",
-            temperature=0.3,
-            openai_api_key=OPENAI_API_KEY
-        )
+        self.llm = ChatOpenAI(model="gpt-3.5-turbo", temperature=0.3)
 
     def respond(self, prompt: str) -> str:
         return self.llm.predict(prompt)
 
 # --------------------------
-# Agentic AI
+# Agentic AI wrapper
 # --------------------------
 class AgenticAI:
     def __init__(self, agent: SimpleAIAgent):
@@ -109,7 +99,7 @@ class AgenticAI:
         return self.agent.respond(final_prompt)
 
 # --------------------------
-# LangGraph Simulation
+# LangGraph (simple execution trace)
 # --------------------------
 class LangGraph:
     def __init__(self):
@@ -134,23 +124,23 @@ user_query = st.text_input("Ask your question about the use case:")
 if user_query:
     clean_query = simple_nlp(user_query)
 
-    # Retrieve relevant documents from FAISS
+    # Retrieve relevant context from FAISS
     retrieved_docs = vectorstore.similarity_search(clean_query, k=2)
     context = " ".join([doc.page_content for doc in retrieved_docs])
 
-    # Initialize Agent & Agentic AI
+    # Initialize Agentic AI
     ai_agent = SimpleAIAgent()
     agentic_ai = AgenticAI(ai_agent)
 
-    # Generate AI response
+    # Generate answer
     answer = agentic_ai.handle_query(clean_query, context)
 
-    # Log in LangGraph
+    # Record execution trace
     lg = LangGraph()
     lg.add_node("Retrieve Context", context)
     lg.add_node("AI Response", answer)
 
-    # Display results
+    # Display output
     st.write("### AI Answer:")
     st.write(answer)
     lg.show_graph()
