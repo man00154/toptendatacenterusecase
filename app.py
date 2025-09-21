@@ -2,7 +2,6 @@
 # pip install streamlit langchain langchain_community openai faiss-cpu sentence-transformers
 
 import streamlit as st
-from langchain.prompts import PromptTemplate
 from langchain_community.vectorstores import FAISS
 from langchain.embeddings.openai import OpenAIEmbeddings
 from langchain.text_splitter import CharacterTextSplitter
@@ -114,7 +113,7 @@ class LangGraph:
 # --------------------------
 # Streamlit UI
 # --------------------------
-st.title("AI-Driven Data Center Assistant with Agent & LangGraph")
+st.title("MANISH SINGH - AI-Driven Data Center Assistant with Agent & LangGraph")
 
 selected_use_case = st.selectbox("Select a Use Case:", use_cases)
 user_query = st.text_input("Ask your question about the use case:")
@@ -122,19 +121,25 @@ user_query = st.text_input("Ask your question about the use case:")
 if user_query:
     clean_query = simple_nlp(user_query)
     
+    # Retrieve relevant docs from FAISS
     docs = vectorstore.similarity_search(clean_query, k=2)
     context = " ".join([doc.page_content for doc in docs])
 
+    # Initialize Agent & Agentic AI
     ai_agent = SimpleAIAgent()
     agentic_ai = AgenticAI(ai_agent)
 
+    # Get AI response
     answer = agentic_ai.handle_query(clean_query, context)
 
+    # Log in LangGraph
     lg = LangGraph()
     lg.add_node("Retrieve Context", context)
     lg.add_node("AI Response", answer)
 
+    # Display AI answer
     st.write("### AI Answer:")
     st.write(answer)
     
+    # Display LangGraph trace
     lg.show_graph()
